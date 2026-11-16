@@ -78,6 +78,24 @@ h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
 
+/* 담당자별 비교 */
+.owner{padding:22px}
+.owner .on{font-size:20px;margin-bottom:18px}
+.owner-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.owner-metric{padding:14px 12px;background:var(--surface-2);border-radius:10px;border-top:3px solid var(--metric)}
+.owner-metric .label{font-size:12px;color:var(--text-2);font-weight:600}
+.owner-metric strong{display:block;font-size:30px;line-height:1.3;margin:6px 0;color:var(--metric);font-variant-numeric:tabular-nums}
+.owner-metric small{font-size:12px;color:var(--text-2)}
+.owner-progress{margin-top:18px}
+.owner-progress .ostat{margin:0 0 7px}
+.owner-progress .bar{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.owner-progress .bar i{display:block;height:100%;background:var(--sent);border-radius:99px}
+.owner-queue{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px}
+.owner-queue div{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-2);padding:9px 10px;background:var(--surface-2);border-radius:7px}
+.owner-queue b{font-size:15px;color:var(--text)}
+.owner .stack{margin-top:16px;height:8px}
+@media(max-width:700px){.owners{grid-template-columns:1fr}.owner{padding:16px}.owner-metric{padding:12px 8px}.owner-metric strong{font-size:27px}}
+
 /* weeks */
 .weeks{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .week{border:1px solid var(--border);border-radius:12px;padding:16px;position:relative}
@@ -179,15 +197,9 @@ td.memo{color:var(--text-2);font-size:12px;max-width:280px;white-space:pre-wrap}
 
   <div class="kpis" id="kpis"></div>
 
-  <div class="grid2">
-    <div class="card">
-      <h2>목표 퍼널</h2>
-      <p class="desc">발송 → 1차 목표(회신 확보) → 2차 목표(샘플 출고)</p>
-      <div class="funnel" id="funnel"></div>
-    </div>
-    <div class="card">
+    <div class="card section">
       <h2>담당자별 현황</h2>
-      <p class="desc">각 48개 업체 기준</p>
+      <p class="desc">발송 · 회신 · 출고를 담당자별로 비교합니다. 회신 확보 수에는 출고완료 업체가 포함됩니다.</p>
       <div class="owners" id="owners"></div>
       <div class="legend">
         <span><i style="background:var(--sample)"></i>샘플 출고</span>
@@ -197,6 +209,14 @@ td.memo{color:var(--text-2);font-size:12px;max-width:280px;white-space:pre-wrap}
         <span><i style="background:var(--wait)"></i>미발송</span>
       </div>
     </div>
+
+  <div class="section">
+    <div class="card">
+      <h2>목표 퍼널</h2>
+      <p class="desc">발송 → 1차 목표(회신 확보) → 2차 목표(샘플 출고)</p>
+      <div class="funnel" id="funnel"></div>
+    </div>
+
   </div>
 
   <div class="card section">
@@ -213,7 +233,7 @@ td.memo{color:var(--text-2);font-size:12px;max-width:280px;white-space:pre-wrap}
 
   <div class="card section">
     <h2>전체 업체 리스트</h2>
-    <p class="desc">컨택리스트 (최종) 시트 원본</p>
+    <p class="desc">출고완료 → 회신완료(출고 전) → 회신대기 → 미발송 → 발송보류 순 · 같은 단계에서는 원본 순서 유지</p>
     <div class="tools">
       <div class="seg" data-key="owner">
         <button data-v="all" class="on">전체</button><button data-v="팀장">팀장</button><button data-v="과장">과장</button>
@@ -379,12 +399,21 @@ function render(){
   $("owners").innerHTML = OWNERS.map(o => {
     const os = stats(rows.filter(r => r.owner === o)), T = PER_OWNER;
     const seg = (n, c) => `<i style="width:${n / T * 100}%;background:${c}"></i>`;
-    return `<div class="owner"><div class="on">${o}<span>${os.total}개 등록</span></div>
-      <div class="stack">${seg(os.sample,"var(--sample)")}${seg(os.reply - os.sample,"var(--reply)")}${seg(os.waitReply,"var(--sent)")}${seg(os.hold,"var(--hold)")}${seg(os.unsent,"var(--wait)")}</div>
-      <div class="ostat"><span>발송</span><b>${os.sent} / ${T}</b></div>
-      <div class="ostat"><span>회신</span><b>${os.reply} <span style="color:var(--text-3);font-weight:500">(${pct(os.reply, os.sent)}%)</span></b></div>
-      <div class="ostat"><span>샘플 출고</span><b>${os.sample}</b></div>
-      <div class="ostat"><span>보류</span><b>${os.hold}</b></div></div>`;
+    const metric = (label,n,color,detail) => `<div class="owner-metric" style="--metric:${color}"><div class="label">${label}</div><strong>${n}<span style="font-size:12px;font-weight:500">곳</span></strong><small>${detail}</small></div>`;
+    return `<div class="owner"><div class="on">${o}<span>목표 ${T}곳 · 등록 ${os.total}곳</span></div>
+      <div class="owner-metrics">
+        ${metric("발송 완료",os.sent,"var(--sent)",`목표 ${T}곳 중 ${pct(os.sent,T)}%`)}
+        ${metric("회신 확보",os.reply,"var(--reply)",`발송 대비 ${pct(os.reply,os.sent)}%`)}
+        ${metric("출고 완료",os.sample,"var(--sample)",`회신 대비 ${pct(os.sample,os.reply)}%`)}
+      </div>
+      <div class="owner-progress"><div class="ostat"><span>발송 목표 진행률</span><b>${os.sent} / ${T}곳 · ${pct(os.sent,T)}%</b></div><div class="bar"><i style="width:${Math.min(pct(os.sent,T),100)}%"></i></div></div>
+      <div class="owner-queue">
+        <div><span>회신 대기</span><b>${os.waitReply}곳</b></div>
+        <div><span>회신 완료 · 출고 전</span><b>${os.reply-os.sample}곳</b></div>
+        <div><span>미발송</span><b>${os.unsent}곳</b></div>
+        <div><span>발송보류</span><b style="color:var(--hold)">${os.hold}곳</b></div>
+      </div>
+      <div class="stack" aria-label="단계별 업체 비중">${seg(os.sample,"var(--sample)")}${seg(os.reply - os.sample,"var(--reply)")}${seg(os.waitReply,"var(--sent)")}${seg(os.hold,"var(--hold)")}${seg(os.unsent,"var(--wait)")}</div></div>`;
   }).join("");
 
   $("weeks").innerHTML = WEEKS.map(w => {
@@ -416,13 +445,15 @@ function render(){
   renderTable();
 }
 
+const STAGE_ORDER = { sample: 0, reply: 1, waitReply: 2, unsent: 3, hold: 4 };
 function renderTable(){
   const q = filt.q.toLowerCase();
   const list = ROWS.filter(r =>
     (filt.owner === "all" || r.owner === filt.owner) &&
     (filt.week === "all" || String(r.week) === filt.week) &&
     (filt.stage === "all" || r.stage === filt.stage) &&
-    (!q || (r.name + r.contact + r.memo).toLowerCase().includes(q)));
+    (!q || (r.name + r.contact + r.memo).toLowerCase().includes(q)))
+    .sort((a,b) => (STAGE_ORDER[a.stage] ?? 3) - (STAGE_ORDER[b.stage] ?? 3));
   $("tbody").innerHTML = list.map(r => `<tr>
     <td class="no">${r.no}</td><td>${r.owner}</td><td>${r.week ? r.week + "주차" : "–"}</td>
     <td class="name">${esc(r.name)}</td><td class="contact">${esc(r.contact)}</td>
